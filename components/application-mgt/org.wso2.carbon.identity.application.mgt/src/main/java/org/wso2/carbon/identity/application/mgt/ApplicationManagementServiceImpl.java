@@ -346,6 +346,10 @@ public class ApplicationManagementServiceImpl extends ApplicationManagementServi
     public void deleteApplication(String applicationName, String tenantDomain, String username)
             throws IdentityApplicationManagementException {
 
+    	// Do nothing -- legacy
+    	if(applicationName.equals("default"))
+    		return;
+    	
         // invoking the listeners
         Collection<ApplicationMgtListener> listeners = ApplicationMgtListenerServiceComponent.getApplicationMgtListeners();
         for (ApplicationMgtListener listener : listeners) {
