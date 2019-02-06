@@ -79,6 +79,10 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
         // reading the token set in the same grant
         Assertion assertion = (Assertion) requestMsgCtx.getProperty(OAuthConstants.OAUTH_SAML2_ASSERTION);
 
+		if (log.isDebugEnabled()) {
+            log.debug("Adding claims (1) for user " + requestMsgCtx.getAuthorizedUser() + " to id token. Assertion is " + assertion);
+        }
+
         if (assertion != null) {
             List<AttributeStatement> list = assertion.getAttributeStatements();
             if (CollectionUtils.isNotEmpty(list)) {
@@ -184,22 +188,66 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
     private Map<String, Object> getResponse(OAuthTokenReqMessageContext requestMsgCtx)
             throws OAuthSystemException {
 
-        Map<ClaimMapping, String> userAttributes =
+		if (log.isDebugEnabled()) {
+            log.debug("Getting response (1) ");
+        }
+
+        Map<org.wso2.carbon.identity.application.common.model.ClaimMapping, String> userAttributes =
                 getUserAttributesFromCache(requestMsgCtx.getProperty(OAuthConstants.ACCESS_TOKEN).toString());
         Map<String, Object> claims = Collections.emptyMap();
 
+        boolean userAttributesInCache = false;
+
+		if (log.isDebugEnabled() && userAttributes != null) {
+			log.debug("User attributes is not null, and size is " + userAttributes.size());
+            for (Iterator it = userAttributes.entrySet().iterator(); it.hasNext();) {
+				Object key = it.next();
+				log.debug("key="+key+",value="+userAttributes.get(key));
+			}
+
+            if(!userAttributes.isEmpty()) {
+            	userAttributesInCache = true;
+            }
+        }
+
+		if (log.isDebugEnabled()) {
+            log.debug("AuthorizationCode= " + requestMsgCtx.getProperty("AuthorizationCode"));
+        }
+
+        if (userAttributes.isEmpty() && requestMsgCtx.getProperty("AuthorizationCode") != null) {
+			if (log.isDebugEnabled()) {
+				log.debug("Getting attributes from cache (1) ");
+			}
+            userAttributes =
+                    getUserAttributesFromCache(requestMsgCtx.getProperty("AuthorizationCode").toString());
+        }
+
+		if (log.isDebugEnabled()) {
+            log.debug("SubjectClaimUri= " + getSubjectClaimUri(requestMsgCtx));
+        }
+
         // If subject claim uri is null, we get the actual user name of the logged in user.
-        if (MapUtils.isEmpty(userAttributes) && (getSubjectClaimUri(requestMsgCtx) == null)) {
+        //if (MapUtils.isEmpty(userAttributes) && (getSubjectClaimUri(requestMsgCtx) == null)) {
+		//if (userAttributes == null || userAttributes.size() == 0) {
+
+		if (!userAttributesInCache) {
             if (log.isDebugEnabled()) {
                 log.debug("User attributes not found in cache. Trying to retrieve attribute for user " + requestMsgCtx
                         .getAuthorizedUser());
             }
             try {
                 claims = getClaimsFromUserStore(requestMsgCtx);
+
+				if (log.isDebugEnabled() && MapUtils.isEmpty(claims) ) {
+					log.debug("No claims in user store (1) ");
+				}
             } catch (UserStoreException | IdentityApplicationManagementException | IdentityException e) {
                 log.error("Error occurred while getting claims for user " + requestMsgCtx.getAuthorizedUser(), e);
             }
         } else {
+			if (log.isDebugEnabled()) {
+				log.debug("Getting claims map (1) ");
+			}
             claims = getClaimsMap(userAttributes);
         }
         return claims;
@@ -208,7 +256,7 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
     private Map<String, Object> getResponse(OAuthAuthzReqMessageContext requestMsgCtx)
             throws OAuthSystemException {
 
-        Map<ClaimMapping, String> userAttributes =
+        Map<org.wso2.carbon.identity.application.common.model.ClaimMapping, String> userAttributes =
                 getUserAttributesFromCache(requestMsgCtx.getProperty(OAuthConstants.ACCESS_TOKEN).toString());
         Map<String, Object> claims = Collections.emptyMap();
 
@@ -236,11 +284,14 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
      * @param userAttributes User Attributes
      * @return User attribute map
      */
-    private Map<String, Object> getClaimsMap(Map<ClaimMapping, String> userAttributes) {
+    private Map<String, Object> getClaimsMap(Map<org.wso2.carbon.identity.application.common.model.ClaimMapping, String> userAttributes) {
 
         Map<String, Object> claims = new HashMap();
         if (MapUtils.isNotEmpty(userAttributes)) {
-            for (Map.Entry<ClaimMapping, String> entry : userAttributes.entrySet()) {
+            for (Map.Entry<org.wso2.carbon.identity.application.common.model.ClaimMapping, String> entry : userAttributes.entrySet()) {
+				if (log.isDebugEnabled()) {
+					log.debug("Adding claim (1) " + entry.getKey().getRemoteClaim().getClaimUri());
+				}
                 claims.put(entry.getKey().getRemoteClaim().getClaimUri(), entry.getValue());
             }
         }
@@ -256,6 +307,10 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
      */
     private static Map<String, Object> getClaimsFromUserStore(OAuthTokenReqMessageContext requestMsgCtx)
             throws UserStoreException, IdentityApplicationManagementException, IdentityException {
+
+		if (log.isDebugEnabled()) {
+            log.debug("getClaimsFromUserStore (1)");
+        }
 
         String username = requestMsgCtx.getAuthorizedUser().toString();
         String tenantDomain = requestMsgCtx.getAuthorizedUser().getTenantDomain();
@@ -288,6 +343,9 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
         if (requestedLocalClaimMap != null && requestedLocalClaimMap.length > 0) {
 
             for (ClaimMapping mapping : requestedLocalClaimMap) {
+				if (log.isDebugEnabled()) {
+						log.debug("Adding claim uri (1)" + mapping.getLocalClaim().getClaimUri() + " is requested=" + mapping.isRequested());
+				}
                 if (mapping.isRequested()) {
                     claimURIList.add(mapping.getLocalClaim().getClaimUri());
                 }
@@ -305,6 +363,10 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
                 userClaims = userStoreManager.getUserClaimValues(
                         MultitenantUtils.getTenantAwareUsername(username),
                         claimURIList.toArray(new String[claimURIList.size()]), null);
+
+				if (log.isDebugEnabled()) {
+                        log.debug("userClaims= " + userClaims + ", size=" + (userClaims != null ? userClaims.size() : 0));
+                    }
             } catch (UserStoreException e) {
                 if (e.getMessage().contains("UserNotFound")) {
                     if (log.isDebugEnabled()) {
@@ -319,9 +381,14 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
                 log.debug("Number of user claims retrieved from user store: " + userClaims.size());
             }
 
-            if (MapUtils.isEmpty(userClaims)) {
+            //if (MapUtils.isEmpty(userClaims)) {
+			if (userClaims == null || userClaims.size() == 0) {
                 return new HashMap<>();
             }
+
+			if (log.isDebugEnabled()) {
+                        log.debug("spToLocalClaimMappings= " + spToLocalClaimMappings);
+                    }
 
             for (Iterator<Map.Entry<String, String>> iterator = spToLocalClaimMappings.entrySet().iterator(); iterator
                     .hasNext(); ) {
@@ -329,6 +396,7 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
                 String value = userClaims.get(entry.getValue());
                 if (value != null) {
                     mappedAppClaims.put(entry.getKey(), value);
+	                   log.debug("Mapped claim: key -  " + entry.getKey() + " value -" + value);
                     if (log.isDebugEnabled() &&
                             IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.USER_CLAIMS)) {
                         log.debug("Mapped claim: key -  " + entry.getKey() + " value -" + value);
@@ -352,6 +420,10 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
     private static Map<String, Object> getClaimsFromUserStore(OAuthAuthzReqMessageContext requestMsgCtx)
             throws IdentityApplicationManagementException, IdentityException, UserStoreException,
             ClaimManagementException {
+
+		if (log.isDebugEnabled()) {
+            log.debug("getClaimsFromUserStore (2)");
+        }
 
         AuthenticatedUser user = requestMsgCtx.getAuthorizationReqDTO().getUser();
         String tenantDomain = requestMsgCtx.getAuthorizationReqDTO().getUser().getTenantDomain();
@@ -384,6 +456,9 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
         if (requestedLocalClaimMap != null && requestedLocalClaimMap.length > 0) {
 
             for (ClaimMapping mapping : requestedLocalClaimMap) {
+				if (log.isDebugEnabled()) {
+					log.debug("Adding claim uri (2)" + mapping.getLocalClaim().getClaimUri() + " is requested=" + mapping.isRequested());
+				}
                 if (mapping.isRequested()) {
                     claimURIList.add(mapping.getLocalClaim().getClaimUri());
                 }
@@ -449,13 +524,13 @@ public class SAMLAssertionClaimsCallback implements CustomClaimsCallbackHandler 
      * @param accessToken Access token
      * @return User attributes
      */
-    private Map<ClaimMapping, String> getUserAttributesFromCache(String accessToken) {
+    private Map<org.wso2.carbon.identity.application.common.model.ClaimMapping, String> getUserAttributesFromCache(String accessToken) {
 
         AuthorizationGrantCacheKey cacheKey = new AuthorizationGrantCacheKey(accessToken);
         AuthorizationGrantCacheEntry cacheEntry = (AuthorizationGrantCacheEntry) AuthorizationGrantCache.
                 getInstance().getValueFromCacheByToken(cacheKey);
         if (cacheEntry == null) {
-            return new HashMap<ClaimMapping, String>();
+            return new HashMap<org.wso2.carbon.identity.application.common.model.ClaimMapping, String>();
         }
         return cacheEntry.getUserAttributes();
     }

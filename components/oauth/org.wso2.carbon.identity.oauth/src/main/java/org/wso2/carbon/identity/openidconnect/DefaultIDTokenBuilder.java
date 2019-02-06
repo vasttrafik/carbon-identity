@@ -1,13 +1,13 @@
 /*
  * Copyright (c) 2014, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
- * 
+ *
  * WSO2 Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -106,11 +106,16 @@ public class DefaultIDTokenBuilder implements org.wso2.carbon.identity.openidcon
     public String buildIDToken(OAuthTokenReqMessageContext request, OAuth2AccessTokenRespDTO tokenRespDTO)
             throws IdentityOAuth2Exception {
 
-        String issuer = OAuth2Util.getIDTokenIssuer();
-        long lifetimeInMillis = Integer.parseInt(config.getOpenIDConnectIDTokenExpiration()) * 1000;
+        //String issuer = OAuth2Util.getIDTokenIssuer();
+
+    	String issuer = "vasttrafikIdp";
+
+        //long lifetimeInMillis = Integer.parseInt(config.getOpenIDConnectIDTokenExpiration()) * 1000;
+    	long lifetimeInMillis = Long.parseLong(config.getOpenIDConnectIDTokenExpiration()) * 1000;
         long curTimeInMillis = Calendar.getInstance().getTimeInMillis();
         // setting subject
-        String subject = request.getAuthorizedUser().getAuthenticatedSubjectIdentifier();
+        //String subject = request.getAuthorizedUser().getAuthenticatedSubjectIdentifier();
+        String subject = request.getAuthorizedUser().toString();
 
         if (!GrantType.AUTHORIZATION_CODE.toString().equals(request.getOauth2AccessTokenReqDTO().getGrantType()) &&
                 !org.wso2.carbon.identity.oauth.common.GrantType.SAML20_BEARER.toString().equals(
@@ -242,7 +247,8 @@ public class DefaultIDTokenBuilder implements org.wso2.carbon.identity.openidcon
             throws IdentityOAuth2Exception {
 
         String issuer = OAuth2Util.getIDTokenIssuer();
-        long lifetimeInMillis = Integer.parseInt(config.getOpenIDConnectIDTokenExpiration()) * 1000;
+        //long lifetimeInMillis = Integer.parseInt(config.getOpenIDConnectIDTokenExpiration()) * 1000;
+    	long lifetimeInMillis = Long.parseLong(config.getOpenIDConnectIDTokenExpiration()) * 1000;
         long curTimeInMillis = Calendar.getInstance().getTimeInMillis();
         // setting subject
         String subject = request.getAuthorizationReqDTO().getUser().getAuthenticatedSubjectIdentifier();
@@ -596,4 +602,3 @@ public class DefaultIDTokenBuilder implements org.wso2.carbon.identity.openidcon
         throw new RuntimeException("Cannot map Signature Algorithm in identity.xml to hashing algorithm");
     }
 }
-
